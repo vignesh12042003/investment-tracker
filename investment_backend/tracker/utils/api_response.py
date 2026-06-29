@@ -1,0 +1,39 @@
+from rest_framework.response import Response
+
+
+def success_response(
+    *,
+    data=None,
+    message="Success",
+    status_code=200,
+):
+    """
+    Standard success API response.
+    """
+    return Response(
+        {
+            "success": True,
+            "message": message,
+            "data": data,
+        },
+        status=status_code,
+    )
+
+
+def error_response(
+    *,
+    message="Error",
+    errors=None,
+    status_code=400,
+):
+    """
+    Standard error API response.
+    """
+    return Response(
+        {
+            "success": False,
+            "message": message,
+            "errors": errors,
+        },
+        status=status_code,
+    )

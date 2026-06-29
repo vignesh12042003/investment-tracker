@@ -3,21 +3,34 @@ import pandas as pd
 import requests
 from src import watchlist, portfolio_tracker, stock_analysis, new_insights, profile
 
-BACKEND_URL = "http://127.0.0.1:8000/api"
+BACKEND_URL =  "http://127.0.0.1:8000/api"
 
-# ---------------- BACKEND SESSION INIT ----------------
-if "session" not in st.session_state:
-    st.session_state.session = requests.Session()
+# ---------------- JWT TOKEN INIT ----------------
+if "access_token" not in st.session_state:
+    st.session_state.access_token = None
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
+
 # ---------------- USER HELPERS ----------------
+def get_headers():
+    token = st.session_state.get("access_token")
+
+    if not token:
+        return {}
+
+    return {
+        "Authorization": f"Bearer {token}"
+    }
+
+
 def fetch_current_user():
-    r = st.session_state.session.get(f"{BACKEND_URL}/me/")
+    r = requests.get(f"{BACKEND_URL}/me/", headers=get_headers())
     if r.status_code == 200:
         return r.json().get("username")
     return None
+
 
 # ---------------- LOGIN / SIGNUP ----------------
 def login_ui():
@@ -30,13 +43,15 @@ def login_ui():
         password = st.text_input("Password", type="password")
 
         if st.button("Login"):
-            r = st.session_state.session.post(
-                f"{BACKEND_URL}/login/",
+            r = requests.post(  # 🔥 CHANGED
+                f"{BACKEND_URL}/token/",
                 json={"username": username, "password": password}
             )
             if r.status_code == 200:
+                data = r.json()
+                st.session_state.access_token = data["access"]  # 🔥 CHANGED
                 st.session_state.logged_in = True
-                st.session_state.username = fetch_current_user()
+                st.session_state.username = username
                 st.rerun()
             else:
                 st.error("Invalid credentials")
@@ -52,7 +67,7 @@ def login_ui():
         p = st.text_input("Password", type="password")
 
         if st.button("Sign Up"):
-            r = st.session_state.session.post(
+            r = requests.post(
                 f"{BACKEND_URL}/register/",
                 json={"username": u, "email": e, "password": p}
             )
@@ -63,6 +78,7 @@ def login_ui():
             else:
                 st.error("Signup failed")
 
+
 # ---------------- LOGIN GATE ----------------
 if not st.session_state.logged_in:
     login_ui()
@@ -71,85 +87,47 @@ if not st.session_state.logged_in:
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="Investment Tracker", layout="wide")
 
-# ---------------- STYLES ----------------
-st.markdown("""
-<style>
-/* ===== SIDEBAR ===== */
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0b132b, #1c2541);
-}
-
-section[data-testid="stSidebar"] * {
-    color: white !important;
-}
-
-section[data-testid="stSidebar"] > div {
-    padding: 20px;
-}
-
-/* Divider above logout */
-.sidebar-divider {
-    margin: 24px 0 12px 0;
-    border-top: 1px solid rgba(255,255,255,0.25);
-}
-
-/* Logout button */
-.logout-btn button {
-    width: 100%;
-    background-color: rgba(255,255,255,0.12) !important;
-    border: 1px solid rgba(255,255,255,0.35);
-    color: white !important;
-    padding: 12px;
-    font-size: 15px;
-    font-weight: 600;
-    border-radius: 8px;
-}
-
-.logout-btn button:hover {
-    background-color: rgba(255,255,255,0.22) !important;
-}
-
-/* ===== MAIN FOOTER ===== */
-.main-footer {
-    margin-top: 48px;
-    padding: 16px 0;
-    border-top: 1px solid #e5e7eb;
-    color: #64748b;
-    font-size: 13px;
-    text-align: center;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # ---------------- BACKEND HELPERS ----------------
 def fetch_portfolio_from_backend():
-    r = st.session_state.session.get(f"{BACKEND_URL}/portfolio/")
+    r = requests.get(f"{BACKEND_URL}/portfolio/", headers=get_headers())  # 🔥 CHANGED
     return r.json() if r.status_code == 200 else []
 
 def fetch_watchlist_from_backend():
-    r = st.session_state.session.get(f"{BACKEND_URL}/watchlist/")
+    r = requests.get(f"{BACKEND_URL}/watchlist/", headers=get_headers())  # 🔥 CHANGED
     return r.json() if r.status_code == 200 else []
 
 def fetch_transactions():
-    r = st.session_state.session.get(f"{BACKEND_URL}/transactions/")
+    r = requests.get(f"{BACKEND_URL}/transactions/", headers=get_headers())  # 🔥 CHANGED
     return r.json() if r.status_code == 200 else []
 
 def submit_transaction(symbol, ttype, qty):
-    return st.session_state.session.post(
+    headers = get_headers()
+
+    st.write("HEADERS:", headers)   # 🔥 DEBUG
+
+    return requests.post(
         f"{BACKEND_URL}/transaction/",
-        json={"stock_symbol": symbol, "transaction_type": ttype, "quantity": qty}
+        json={
+            "stock_symbol": symbol,
+            "transaction_type": ttype,
+            "quantity": qty
+        },
+        headers=headers
     )
 
 def add_watchlist_backend(stock):
-    return st.session_state.session.post(
+    return requests.post(  # 🔥 CHANGED
         f"{BACKEND_URL}/watchlist/",
-        json={"stock_symbol": stock}
+        json={"stock_symbol": stock},
+        headers=get_headers()
     )
 
 def remove_watchlist_backend(stock):
-    return st.session_state.session.delete(
+    return requests.delete(  # 🔥 CHANGED
         f"{BACKEND_URL}/watchlist/",
-        json={"stock_symbol": stock}
+        json={"stock_symbol": stock},
+        headers=get_headers()
     )
 
 def calculate_portfolio_summary(data):
@@ -233,13 +211,34 @@ elif page == "📂 Portfolio":
     sym = st.text_input("Stock Symbol")
     qty = st.number_input("Quantity", min_value=1, step=1)
 
-    b1,b2 = st.columns(2)
+    # ✅ MUST BE INSIDE THIS BLOCK
+    b1, b2 = st.columns(2)
+
+    # ---------------- BUY ----------------
     if b1.button("🟢 BUY"):
-        submit_transaction(sym,"BUY",qty)
-        st.rerun()
+        response = submit_transaction(sym, "BUY", qty)
+
+        st.write("Status:", response.status_code)
+        st.write("Response:", response.text)
+
+        if response.status_code == 200:
+            st.success("Stock added successfully")
+            st.rerun()
+        else:
+            st.error("Failed to add stock")
+
+    # ---------------- SELL ----------------
     if b2.button("🔴 SELL"):
-        submit_transaction(sym,"SELL",qty)
-        st.rerun()
+        response = submit_transaction(sym, "SELL", qty)
+
+        st.write("Status:", response.status_code)
+        st.write("Response:", response.text)
+
+        if response.status_code == 200:
+            st.success("Stock sold successfully")
+            st.rerun()
+        else:
+            st.error("Failed to sell stock")
 
     st.subheader("📊 Current Portfolio")
     st.dataframe(pd.DataFrame(pdata), hide_index=True)

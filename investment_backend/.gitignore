@@ -1,43 +1,29 @@
-# ==========================
 # Python
-# ==========================
 __pycache__/
 *.py[cod]
-*$py.class
+*.sqlite3
+*.log
 
-# ==========================
 # Virtual Environment
-# ==========================
 venv/
-env/
-
-# ==========================
-# Environment Variables
-# ==========================
 .env
 
-# ==========================
-# SQLite Database
-# ==========================
-*.sqlite3
-
-# ==========================
-# Static Files
-# ==========================
-staticfiles/
-
-# ==========================
 # VS Code
-# ==========================
 .vscode/
 
-# ==========================
-# PyCharm
-# ==========================
-.idea/
+# Static & Media
+staticfiles/
+media/
 
-# ==========================
-# OS Files
-# ==========================
+# Python build files
+*.egg-info/
+dist/
+build/
+
+# Node (for React later)
+node_modules/
+dist/
+
+# OS files
 .DS_Store
 Thumbs.db
